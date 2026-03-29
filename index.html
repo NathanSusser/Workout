@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Zero-Thought Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+        .input-box { background-color: #1e293b; border: 1px solid #334155; color: white; text-align: center; font-size: 1.5rem; border-radius: 0.5rem; outline: none; }
+        .input-box:focus { border-color: #3b82f6; }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- Header -->
+    <header class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 sticky top-0 z-10">
+        <h1 id="workout-title" class="text-lg font-bold text-blue-400">Loading...</h1>
+        <div id="progress-indicator" class="text-sm text-slate-400">Ex 1/5</div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow p-4 flex flex-col items-center justify-center relative">
+        
+        <!-- Exercise Info -->
+        <div id="exercise-container" class="w-full max-w-md text-center">
+            <h2 id="ex-name" class="text-3xl font-extrabold mb-2">Bench Press</h2>
+            <p id="ex-cues" class="text-sm text-slate-400 italic mb-6">Plant feet. Retract scapula.</p>
+            
+            <div class="flex justify-center gap-4 mb-6 text-sm font-semibold bg-slate-800 p-3 rounded-lg">
+                <div class="flex flex-col">
+                    <span class="text-slate-400 text-xs uppercase">Target Reps</span>
+                    <span id="ex-reps" class="text-lg">8-10</span>
+                </div>
+                <div class="flex flex-col border-l border-slate-700 pl-4">
+                    <span class="text-slate-400 text-xs uppercase">Tempo</span>
+                    <span id="ex-tempo" class="text-lg">3-1-1-0</span>
+                </div>
+                <div class="flex flex-col border-l border-slate-700 pl-4">
+                    <span class="text-slate-400 text-xs uppercase">Set</span>
+                    <span id="ex-set-tracker" class="text-lg text-blue-400">1/4</span>
+                </div>
+            </div>
+
+            <!-- Logging Inputs -->
+            <div class="flex gap-4 mb-8">
+                <div class="flex-1">
+                    <label class="block text-xs text-slate-400 uppercase mb-1">Lbs</label>
+                    <input type="number" id="input-weight" inputmode="numeric" class="input-box w-full p-3" placeholder="0">
+                </div>
+                <div class="flex-1">
+                    <label class="block text-xs text-slate-400 uppercase mb-1">Reps</label>
+                    <input type="number" id="input-reps" inputmode="numeric" class="input-box w-full p-3" placeholder="0">
+                </div>
+            </div>
+
+            <!-- Action Button -->
+            <button id="btn-complete" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-lg py-4 rounded-xl shadow-lg transition-colors active:scale-95">
+                Complete Set
+            </button>
+        </div>
+
+        <!-- Timer Overlay (Hidden by default) -->
+        <div id="timer-container" class="hidden absolute inset-0 bg-slate-900 flex flex-col items-center justify-center z-20">
+            <h3 class="text-xl text-slate-400 mb-4">Rest & Recover</h3>
+            <div id="timer-display" class="text-7xl font-mono font-bold text-white mb-8">01:30</div>
+            <div class="flex gap-4 w-full max-w-xs">
+                <button id="btn-add-time" class="flex-1 bg-slate-800 text-white font-bold py-3 rounded-lg">+30s</button>
+                <button id="btn-skip-rest" class="flex-1 bg-red-600 text-white font-bold py-3 rounded-lg">Skip</button>
+            </div>
+        </div>
+
+        <!-- Workout Complete Screen -->
+        <div id="complete-container" class="hidden w-full max-w-md text-center">
+            <div class="text-6xl mb-4">🏆</div>
+            <h2 class="text-3xl font-extrabold mb-2">Workout Complete</h2>
+            <p class="text-slate-400 mb-6">Great job. Hydrate and get some protein.</p>
+            <button onclick="location.reload()" class="w-full bg-slate-700 text-white font-bold py-4 rounded-xl">Back to Start</button>
+        </div>
+
+    </main>
+
+    <script>
+        // Database (Agent 3's JSON Hardcoded)
+        const workoutData = {
+            "workoutName": "Week 1, Day 1: Upper Strength",
+            "exercises": [
+                { id: 1, name: "Wall Slides (Warmup)", sets: 2, reps: "12", tempo: "Slow", restSeconds: 30, cues: "Keep lower back flat against wall. Slide up slowly." },
+                { id: 2, name: "Barbell Bench Press", sets: 4, reps: "5", tempo: "3-1-1-0", restSeconds: 120, cues: "Plant feet firmly. Retract scapula. Touch mid-chest." },
+                { id: 3, name: "Dumbbell Row", sets: 3, reps: "8", tempo: "2-0-1-1", restSeconds: 90, cues: "Pull to the hip, not chest. Squeeze lats." },
+                { id: 4, name: "Incline DB Press", sets: 3, reps: "10", tempo: "3-0-1-0", restSeconds: 90, cues: "Bench at 30 deg. Elbows tucked 45 deg." },
+                { id: 5, name: "Cable Face Pulls", sets: 3, reps: "15", tempo: "2-0-1-2", restSeconds: 60, cues: "Pull to eyes. Externally rotate at peak." }
+            ]
+        };
+
+        // Application State
+        let currentExIndex = 0;
+        let currentSet = 1;
+        let timerInterval;
+        let timeRemaining = 0;
+
+        // DOM Elements
+        const elTitle = document.getElementById('workout-title');
+        const elProgress = document.getElementById('progress-indicator');
+        const elExName = document.getElementById('ex-name');
+        const elExCues = document.getElementById('ex-cues');
+        const elExReps = document.getElementById('ex-reps');
+        const elExTempo = document.getElementById('ex-tempo');
+        const elExSetTracker = document.getElementById('ex-set-tracker');
+        const inputWeight = document.getElementById('input-weight');
+        const inputReps = document.getElementById('input-reps');
+        const btnComplete = document.getElementById('btn-complete');
+        
+        const viewExercise = document.getElementById('exercise-container');
+        const viewTimer = document.getElementById('timer-container');
+        const viewComplete = document.getElementById('complete-container');
+        const timerDisplay = document.getElementById('timer-display');
+        const btnSkipRest = document.getElementById('btn-skip-rest');
+        const btnAddTime = document.getElementById('btn-add-time');
+
+        // Initialize App
+        function init() {
+            elTitle.innerText = workoutData.workoutName;
+            renderExercise();
+        }
+
+        // Render Current Exercise State
+        function renderExercise() {
+            const ex = workoutData.exercises[currentExIndex];
+            elProgress.innerText = `Ex ${currentExIndex + 1}/${workoutData.exercises.length}`;
+            elExName.innerText = ex.name;
+            elExCues.innerText = ex.cues;
+            elExReps.innerText = ex.reps;
+            elExTempo.innerText = ex.tempo;
+            elExSetTracker.innerText = `${currentSet}/${ex.sets}`;
+            
+            // Clear inputs for the new set (optional, could retain weight)
+            inputReps.value = '';
+            inputReps.placeholder = ex.reps;
+            
+            if (currentSet === ex.sets) {
+                btnComplete.innerText = "Complete Exercise";
+            } else {
+                btnComplete.innerText = "Complete Set";
+            }
+        }
+
+        // Timer Logic
+        function startTimer(seconds) {
+            timeRemaining = seconds;
+            updateTimerDisplay();
+            viewExercise.classList.add('hidden');
+            viewTimer.classList.remove('hidden');
+
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+                if (timeRemaining <= 0) {
+                    endTimer();
+                    // Vibrate device if supported
+                    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+                }
+            }, 1000);
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(timeRemaining / 60).toString().padStart(2, '0');
+            const s = (timeRemaining % 60).toString().padStart(2, '0');
+            timerDisplay.innerText = `${m}:${s}`;
+        }
+
+        function endTimer() {
+            clearInterval(timerInterval);
+            viewTimer.classList.add('hidden');
+            viewExercise.classList.remove('hidden');
+        }
+
+        // Progression Logic
+        btnComplete.addEventListener('click', () => {
+            const ex = workoutData.exercises[currentExIndex];
+            
+            // Logic to save data could go here
+            // const loggedWeight = inputWeight.value;
+            // const loggedReps = inputReps.value;
+
+            if (currentSet < ex.sets) {
+                currentSet++;
+                startTimer(ex.restSeconds);
+            } else {
+                // Exercise Complete
+                currentExIndex++;
+                if (currentExIndex < workoutData.exercises.length) {
+                    currentSet = 1;
+                    startTimer(60); // Standard transition rest between exercises
+                } else {
+                    // Workout Complete
+                    viewExercise.classList.add('hidden');
+                    viewComplete.classList.remove('hidden');
+                }
+            }
+            if(currentExIndex < workoutData.exercises.length) {
+                renderExercise();
+            }
+        });
+
+        // Timer Controls
+        btnSkipRest.addEventListener('click', endTimer);
+        btnAddTime.addEventListener('click', () => {
+            timeRemaining += 30;
+            updateTimerDisplay();
+        });
+
+        // Start
+        init();
+    </script>
+</body>
+</html>
