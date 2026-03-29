@@ -7,23 +7,53 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0f172a; color: #f8fafc; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        .input-box { background-color: #1e293b; border: 1px solid #334155; color: white; text-align: center; font-size: 1.5rem; border-radius: 0.5rem; outline: none; }
+        .input-box { background-color: #1e293b; border: 1px solid #334155; color: white; text-align: center; font-size: 1.25rem; border-radius: 0.5rem; outline: none; }
         .input-box:focus { border-color: #3b82f6; }
+        select { appearance: none; background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: right 1rem center; background-size: 1em; }
     </style>
 </head>
 <body class="flex flex-col min-h-screen">
 
     <!-- Header -->
     <header class="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900 sticky top-0 z-10">
-        <h1 id="workout-title" class="text-lg font-bold text-blue-400">Loading...</h1>
-        <div id="progress-indicator" class="text-sm text-slate-400">Ex 1/5</div>
+        <h1 id="workout-title" class="text-lg font-bold text-blue-400">Zero-Thought Tracker</h1>
+        <div id="progress-indicator" class="text-sm text-slate-400 hidden">Ex 1/5</div>
     </header>
 
     <!-- Main Content -->
     <main class="flex-grow p-4 flex flex-col items-center justify-center relative">
         
-        <!-- Exercise Info -->
-        <div id="exercise-container" class="w-full max-w-md text-center">
+        <!-- Setup Screen (Visible on load) -->
+        <div id="setup-container" class="w-full max-w-md text-center">
+            <h2 class="text-3xl font-extrabold mb-2">Setup Workout</h2>
+            <p class="text-sm text-slate-400 mb-8">Select your current week and day.</p>
+            
+            <div class="flex gap-4 mb-8">
+                <div class="flex-1 text-left">
+                    <label class="block text-xs text-slate-400 uppercase mb-2 font-bold">Week</label>
+                    <select id="select-week" class="input-box w-full p-4">
+                        <!-- Populated by JS -->
+                    </select>
+                </div>
+                <div class="flex-1 text-left">
+                    <label class="block text-xs text-slate-400 uppercase mb-2 font-bold">Day</label>
+                    <select id="select-day" class="input-box w-full p-4">
+                        <option value="0">Day 1: Upper</option>
+                        <option value="1">Day 2: Lower</option>
+                        <option value="2">Day 3: Push</option>
+                        <option value="3">Day 4: Pull</option>
+                        <option value="4">Day 5: Legs</option>
+                    </select>
+                </div>
+            </div>
+
+            <button id="btn-start" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold text-xl py-4 rounded-xl shadow-lg transition-colors active:scale-95">
+                Start Session
+            </button>
+        </div>
+
+        <!-- Exercise Info (Hidden on load) -->
+        <div id="exercise-container" class="hidden w-full max-w-md text-center">
             <h2 id="ex-name" class="text-3xl font-extrabold mb-2">Bench Press</h2>
             <p id="ex-cues" class="text-sm text-slate-400 italic mb-6">Plant feet. Retract scapula.</p>
             
@@ -81,19 +111,62 @@
     </main>
 
     <script>
-        // Database (Agent 3's JSON Hardcoded)
-        const workoutData = {
-            "workoutName": "Week 1, Day 1: Upper Strength",
-            "exercises": [
-                { id: 1, name: "Wall Slides (Warmup)", sets: 2, reps: "12", tempo: "Slow", restSeconds: 30, cues: "Keep lower back flat against wall. Slide up slowly." },
-                { id: 2, name: "Barbell Bench Press", sets: 4, reps: "5", tempo: "3-1-1-0", restSeconds: 120, cues: "Plant feet firmly. Retract scapula. Touch mid-chest." },
-                { id: 3, name: "Dumbbell Row", sets: 3, reps: "8", tempo: "2-0-1-1", restSeconds: 90, cues: "Pull to the hip, not chest. Squeeze lats." },
-                { id: 4, name: "Incline DB Press", sets: 3, reps: "10", tempo: "3-0-1-0", restSeconds: 90, cues: "Bench at 30 deg. Elbows tucked 45 deg." },
-                { id: 5, name: "Cable Face Pulls", sets: 3, reps: "15", tempo: "2-0-1-2", restSeconds: 60, cues: "Pull to eyes. Externally rotate at peak." }
-            ]
-        };
+        // Full 5-Day Database
+        const allWorkouts = [
+            {
+                baseName: "Day 1: Upper Strength",
+                exercises: [
+                    { name: "Wall Slides (Warmup)", sets: 2, reps: "12", tempo: "Slow", restSeconds: 30, cues: "Keep lower back flat against wall. Slide up slowly." },
+                    { name: "Barbell Bench Press", sets: 4, reps: "5", tempo: "3-1-1-0", restSeconds: 120, cues: "Plant feet firmly. Retract scapula. Touch mid-chest." },
+                    { name: "Dumbbell Row", sets: 4, reps: "6-8", tempo: "2-0-1-1", restSeconds: 90, cues: "Pull to the hip, not chest. Squeeze lats." },
+                    { name: "Incline DB Press", sets: 3, reps: "8-10", tempo: "3-0-1-0", restSeconds: 90, cues: "Bench at 30 deg. Elbows tucked 45 deg." },
+                    { name: "Cable Face Pulls", sets: 3, reps: "15", tempo: "2-0-1-2", restSeconds: 60, cues: "Pull to eyes. Externally rotate at peak." }
+                ]
+            },
+            {
+                baseName: "Day 2: Lower Strength",
+                exercises: [
+                    { name: "90/90 Switches (Warmup)", sets: 2, reps: "10/side", tempo: "Controlled", restSeconds: 30, cues: "Keep torso upright. Rotate from the hips." },
+                    { name: "Barbell Squat", sets: 4, reps: "5", tempo: "3-0-1-0", restSeconds: 150, cues: "Break at hips and knees simultaneously. Drive chest up." },
+                    { name: "Romanian Deadlift", sets: 3, reps: "8-10", tempo: "3-1-1-0", restSeconds: 120, cues: "Push hips back. Feel stretch in hamstrings." },
+                    { name: "Leg Press", sets: 3, reps: "10-12", tempo: "2-0-1-0", restSeconds: 90, cues: "Don't lock out knees at the top. Deep stretch at bottom." },
+                    { name: "Standing Calf Raises", sets: 3, reps: "15-20", tempo: "2-1-1-1", restSeconds: 60, cues: "Full stretch at bottom. Squeeze hard at the top." }
+                ]
+            },
+            {
+                baseName: "Day 3: Push Hypertrophy",
+                exercises: [
+                    { name: "Band Pull-Aparts (Warmup)", sets: 2, reps: "15", tempo: "Controlled", restSeconds: 30, cues: "Squeeze shoulder blades together." },
+                    { name: "Overhead Press", sets: 4, reps: "8-10", tempo: "2-0-1-0", restSeconds: 120, cues: "Brace core tight. Press straight up." },
+                    { name: "Dumbbell Flyes", sets: 3, reps: "10-12", tempo: "3-0-1-0", restSeconds: 90, cues: "Slight bend in elbows. Stretch chest wide." },
+                    { name: "Tricep Rope Pushdowns", sets: 3, reps: "12-15", tempo: "2-0-1-1", restSeconds: 60, cues: "Keep elbows glued to sides. Pull rope apart at bottom." },
+                    { name: "Pallof Press (Core)", sets: 3, reps: "10/side", tempo: "2-2-2-0", restSeconds: 60, cues: "Resist rotation. Core tight." }
+                ]
+            },
+            {
+                baseName: "Day 4: Pull Hypertrophy",
+                exercises: [
+                    { name: "Thoracic Extensions (Warmup)", sets: 2, reps: "10", tempo: "Slow", restSeconds: 30, cues: "Use foam roller. Extend upper back gently." },
+                    { name: "Lat Pulldown", sets: 4, reps: "8-12", tempo: "3-0-1-1", restSeconds: 90, cues: "Drive elbows down to pockets. Arch upper back slightly." },
+                    { name: "EZ Bar Bicep Curls", sets: 3, reps: "10-12", tempo: "2-0-1-1", restSeconds: 60, cues: "Keep elbows slightly forward. Squeeze at top." },
+                    { name: "DB Hammer Curls", sets: 3, reps: "10-12", tempo: "2-0-1-0", restSeconds: 60, cues: "Neutral grip. Control the negative." },
+                    { name: "Hanging Leg Raises (Core)", sets: 3, reps: "10-15", tempo: "2-0-1-0", restSeconds: 60, cues: "Don't swing. Use abs to lift pelvis." }
+                ]
+            },
+            {
+                baseName: "Day 5: Leg Hypertrophy",
+                exercises: [
+                    { name: "Goblet Squat Hold (Warmup)", sets: 2, reps: "30 sec", tempo: "Hold", restSeconds: 30, cues: "Pry knees open with elbows. Keep chest proud." },
+                    { name: "Barbell Deadlift", sets: 4, reps: "5", tempo: "Controlled", restSeconds: 150, cues: "Hips down, chest up. Push floor away." },
+                    { name: "Bulgarian Split Squats", sets: 3, reps: "8-10/leg", tempo: "2-0-1-0", restSeconds: 90, cues: "Keep weight on front heel. Slight forward lean." },
+                    { name: "Leg Extensions", sets: 3, reps: "12-15", tempo: "2-0-1-1", restSeconds: 60, cues: "Squeeze quads hard at the top." },
+                    { name: "Weighted Plank (Core)", sets: 3, reps: "45 sec", tempo: "Hold", restSeconds: 60, cues: "Tuck pelvis. Squeeze glutes and abs." }
+                ]
+            }
+        ];
 
         // Application State
+        let activeWorkout = null;
         let currentExIndex = 0;
         let currentSet = 1;
         let timerInterval;
@@ -102,6 +175,14 @@
         // DOM Elements
         const elTitle = document.getElementById('workout-title');
         const elProgress = document.getElementById('progress-indicator');
+        const selectWeek = document.getElementById('select-week');
+        const selectDay = document.getElementById('select-day');
+        
+        const viewSetup = document.getElementById('setup-container');
+        const viewExercise = document.getElementById('exercise-container');
+        const viewTimer = document.getElementById('timer-container');
+        const viewComplete = document.getElementById('complete-container');
+        
         const elExName = document.getElementById('ex-name');
         const elExCues = document.getElementById('ex-cues');
         const elExReps = document.getElementById('ex-reps');
@@ -109,32 +190,50 @@
         const elExSetTracker = document.getElementById('ex-set-tracker');
         const inputWeight = document.getElementById('input-weight');
         const inputReps = document.getElementById('input-reps');
-        const btnComplete = document.getElementById('btn-complete');
         
-        const viewExercise = document.getElementById('exercise-container');
-        const viewTimer = document.getElementById('timer-container');
-        const viewComplete = document.getElementById('complete-container');
+        const btnStart = document.getElementById('btn-start');
+        const btnComplete = document.getElementById('btn-complete');
         const timerDisplay = document.getElementById('timer-display');
         const btnSkipRest = document.getElementById('btn-skip-rest');
         const btnAddTime = document.getElementById('btn-add-time');
 
-        // Initialize App
-        function init() {
-            elTitle.innerText = workoutData.workoutName;
-            renderExercise();
+        // Populate Week Dropdown (Weeks 1-12)
+        for (let i = 1; i <= 12; i++) {
+            const option = document.createElement('option');
+            option.value = i;
+            option.text = `Week ${i}`;
+            selectWeek.appendChild(option);
         }
+
+        // Start Session Logic
+        btnStart.addEventListener('click', () => {
+            const selectedWeek = selectWeek.value;
+            const selectedDayIndex = selectDay.value;
+            
+            // Load the correct workout from the array
+            activeWorkout = allWorkouts[selectedDayIndex];
+            
+            // Update Title
+            elTitle.innerText = `Week ${selectedWeek} - ${activeWorkout.baseName}`;
+            elProgress.classList.remove('hidden');
+            
+            // Switch Views
+            viewSetup.classList.add('hidden');
+            viewExercise.classList.remove('hidden');
+            
+            renderExercise();
+        });
 
         // Render Current Exercise State
         function renderExercise() {
-            const ex = workoutData.exercises[currentExIndex];
-            elProgress.innerText = `Ex ${currentExIndex + 1}/${workoutData.exercises.length}`;
+            const ex = activeWorkout.exercises[currentExIndex];
+            elProgress.innerText = `Ex ${currentExIndex + 1}/${activeWorkout.exercises.length}`;
             elExName.innerText = ex.name;
             elExCues.innerText = ex.cues;
             elExReps.innerText = ex.reps;
             elExTempo.innerText = ex.tempo;
             elExSetTracker.innerText = `${currentSet}/${ex.sets}`;
             
-            // Clear inputs for the new set (optional, could retain weight)
             inputReps.value = '';
             inputReps.placeholder = ex.reps;
             
@@ -157,7 +256,6 @@
                 updateTimerDisplay();
                 if (timeRemaining <= 0) {
                     endTimer();
-                    // Vibrate device if supported
                     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
                 }
             }, 1000);
@@ -177,28 +275,23 @@
 
         // Progression Logic
         btnComplete.addEventListener('click', () => {
-            const ex = workoutData.exercises[currentExIndex];
-            
-            // Logic to save data could go here
-            // const loggedWeight = inputWeight.value;
-            // const loggedReps = inputReps.value;
+            const ex = activeWorkout.exercises[currentExIndex];
 
             if (currentSet < ex.sets) {
                 currentSet++;
                 startTimer(ex.restSeconds);
             } else {
-                // Exercise Complete
                 currentExIndex++;
-                if (currentExIndex < workoutData.exercises.length) {
+                if (currentExIndex < activeWorkout.exercises.length) {
                     currentSet = 1;
                     startTimer(60); // Standard transition rest between exercises
                 } else {
-                    // Workout Complete
                     viewExercise.classList.add('hidden');
                     viewComplete.classList.remove('hidden');
+                    elProgress.classList.add('hidden');
                 }
             }
-            if(currentExIndex < workoutData.exercises.length) {
+            if(currentExIndex < activeWorkout.exercises.length) {
                 renderExercise();
             }
         });
@@ -210,8 +303,6 @@
             updateTimerDisplay();
         });
 
-        // Start
-        init();
     </script>
 </body>
 </html>
